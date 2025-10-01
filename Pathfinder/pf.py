@@ -95,7 +95,7 @@ async def worker(base_url, paths, out_file):
                 out_f.flush()
 
                 # 表示用にフィルタ (statusが200 - 399のものだけ)
-                if isinstace(res["status"], int) and 200 <= res["status"] < 400:
+                if isinstance(res["status"], int) and 200 <= res["status"] < 400:
                     results_to_show.append(res)
         
         # Score順にソートして表示
