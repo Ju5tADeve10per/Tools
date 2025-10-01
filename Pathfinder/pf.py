@@ -81,21 +81,35 @@ async def fetch(session, url):
 async def worker(base_url, paths, out_file):
     async with aiohttp.ClientSession() as session:
         tasks = [fetch(session, urljoin(base_url, p)) for p in paths]
+        results_to_show = []
+
         with open(out_file, "w") as out_f:
             for coro in asyncio.as_completed(tasks):
                 res = await coro
                 score, reason = is_interesting(res["url"], res.get("status"), res.get("content_length") or 0)
-                status = res.get("status")
-                # Print with color
-                if score >= 100:
-                    print(f"{COLOR_BOLD}{COLOR_RED}[!!] {res['url']} -> {status} ({reason}){COLOR_RESET}")
-                elif score >= 50:
-                    print(f"{COLOR_BOLD}{COLOR_YELLOW}[+] {res['url']} -> {status} ({reason}){COLOR_RESET}")
-                elif status in (401, 403):
-                    print(f"{COLOR_CYAN}[i] {res['url']} -> {status} ({reason}){COLOR_RESET}")
-                # Write all responses to file
+                res['score'] = score
+                res['reason'] = reason
+
+                # JSONL に全レスポンスを書き込む
                 out_f.write(json.dumps(res, ensure_ascii=False) + "\n")
                 out_f.flush()
+
+                # 表示用にフィルタ (statusが200 - 399のものだけ)
+                if isinstace(res["status"], int) and 200 <= res["status"] < 400:
+                    results_to_show.append(res)
+        
+        # Score順にソートして表示
+        for r in sorted(results_to_show, key=lambda x: x['score'], reverse=True):
+            url = r['url']
+            status = r['status']
+            reason = r['reason']
+            score = r['score']
+            if score >= 100:
+                print(f"{COLOR_BOLD}{COLOR_RED}[!!] {url} -> {status} ({reason}){COLOR_RESET}")
+            elif score >= 50:
+                print(f"{COLOR_BOLD}{COLOR_YELLOW}[+] {url} -> {status} ({reason}){COLOR_RESET}")
+            elif status in (401, 403):
+                print(f"{COLOR_CYAN}[i] {url} -> {status} ({reason}){COLOR_RESET}")
 
 def main():
     parser = argparse.ArgumentParser(description="Pathfinder (pf) - simple directory scanner")
